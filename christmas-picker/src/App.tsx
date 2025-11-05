@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import Snowfall from './components/Snowfall';
-import { restaurants, questions } from './data/restaurants';
+import { restaurants, questions, type Restaurant } from './data/restaurants';
 import { Utensils, Star, MapPin, TrendingUp, Clock, Beer } from 'lucide-react';
 
 type Answers = {
@@ -12,6 +12,12 @@ type Answers = {
   michelin?: string;
   pubs?: string;
   duration?: string;
+};
+
+type ScoredRestaurant = Restaurant & {
+  score: number;
+  matchPercentage: number;
+  perfectMatches: number;
 };
 
 function App() {
@@ -30,37 +36,81 @@ function App() {
   };
 
   const filteredRestaurants = useMemo(() => {
-    let filtered = restaurants.filter(r => r.status === 'available');
+    const available = restaurants.filter(r => r.status === 'available');
 
-    if (answers.budget) {
-      filtered = filtered.filter(r => r.priceRange === answers.budget);
-    }
+    // Score each restaurant based on how well it matches preferences
+    const scored: ScoredRestaurant[] = available.map(restaurant => {
+      let score = 0;
+      let perfectMatches = 0;
+      let totalCriteria = 0;
 
-    if (answers.cuisine && answers.cuisine !== 'Other') {
-      filtered = filtered.filter(r => r.cuisine === answers.cuisine);
-    }
+      // Budget match (most important - double weight)
+      if (answers.budget) {
+        totalCriteria += 2;
+        if (restaurant.priceRange === answers.budget) {
+          score += 2;
+          perfectMatches++;
+        }
+      }
 
-    if (answers.atmosphere) {
-      filtered = filtered.filter(r => r.atmosphere === answers.atmosphere);
-    }
+      // Cuisine match (important)
+      if (answers.cuisine && answers.cuisine !== 'Other') {
+        totalCriteria++;
+        if (restaurant.cuisine === answers.cuisine) {
+          score += 1;
+          perfectMatches++;
+        }
+      }
 
-    if (answers.michelin === 'yes') {
-      filtered = filtered.filter(r => r.michelin);
-    }
+      // Atmosphere match
+      if (answers.atmosphere) {
+        totalCriteria++;
+        if (restaurant.atmosphere === answers.atmosphere) {
+          score += 1;
+          perfectMatches++;
+        }
+      }
 
-    if (answers.pubs === 'yes') {
-      filtered = filtered.filter(r => r.pubsNearby);
-    }
+      // Michelin stars preference
+      if (answers.michelin === 'yes') {
+        totalCriteria++;
+        if (restaurant.michelin) {
+          score += 1;
+          perfectMatches++;
+        }
+      }
 
-    if (answers.duration) {
-      filtered = filtered.filter(r => r.duration === answers.duration);
-    }
+      // Pubs nearby preference
+      if (answers.pubs === 'yes') {
+        totalCriteria++;
+        if (restaurant.pubsNearby) {
+          score += 1;
+          perfectMatches++;
+        }
+      }
 
-    return filtered.sort((a, b) => {
-      // Prioritize Michelin stars
+      // Duration match
+      if (answers.duration) {
+        totalCriteria++;
+        if (restaurant.duration === answers.duration) {
+          score += 1;
+          perfectMatches++;
+        }
+      }
+
+      return {
+        ...restaurant,
+        score,
+        matchPercentage: totalCriteria > 0 ? Math.round((score / totalCriteria) * 100) : 100,
+        perfectMatches,
+      };
+    });
+
+    // Sort by score (highest first), then by Michelin stars, then by price
+    return scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
       if (a.michelin && !b.michelin) return -1;
       if (!a.michelin && b.michelin) return 1;
-      // Then by price
       return a.pricePerHead - b.pricePerHead;
     });
   }, [answers]);
@@ -156,20 +206,36 @@ function App() {
                 🎅 Your Perfect Christmas Restaurants 🎅
               </h2>
               <p className="text-xl text-green-100 mb-4">
-                Based on your preferences, here are {filteredRestaurants.length} great {filteredRestaurants.length === 1 ? 'match' : 'matches'}!
+                Here are your top {filteredRestaurants.length} restaurant {filteredRestaurants.length === 1 ? 'match' : 'matches'}, ranked by how well they fit your preferences!
               </p>
-              {filteredRestaurants.length === 0 && (
-                <p className="text-yellow-300 text-lg">
-                  No restaurants match all your criteria. Try adjusting your preferences!
+              {filteredRestaurants.length > 0 && filteredRestaurants[0].matchPercentage === 100 && (
+                <p className="text-yellow-300 text-lg font-semibold">
+                  🎉 Perfect match found! 🎉
+                </p>
+              )}
+              {filteredRestaurants.length > 0 && filteredRestaurants[0].matchPercentage < 100 && (
+                <p className="text-green-200 text-sm">
+                  💡 Tip: No perfect matches, but these are your best options based on your preferences
                 </p>
               )}
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {filteredRestaurants.map((restaurant) => (
-                <Card key={restaurant.id} className="border-3 border-red-600 hover:border-yellow-400 transition-all hover:scale-105 bg-white">
+                <Card key={restaurant.id} className="border-3 border-red-600 hover:border-yellow-400 transition-all hover:scale-105 bg-white relative">
+                  <div className="absolute top-3 right-3 z-10">
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      restaurant.matchPercentage === 100
+                        ? 'bg-green-500 text-white'
+                        : restaurant.matchPercentage >= 70
+                        ? 'bg-yellow-500 text-white'
+                        : 'bg-gray-400 text-white'
+                    }`}>
+                      {restaurant.matchPercentage}% match
+                    </div>
+                  </div>
                   <CardHeader>
-                    <CardTitle className="flex items-start justify-between text-2xl text-red-800">
+                    <CardTitle className="flex items-start justify-between text-2xl text-red-800 pr-24">
                       <span>{restaurant.name}</span>
                       {restaurant.michelin && (
                         <div className="flex gap-0.5">
