@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Festive Christmas styles */
+.snowflake {
+  position: fixed;
+  top: -10px;
+  z-index: 9999;
+  user-select: none;
+  cursor: default;
+  animation: snowfall linear infinite;
+  color: #fff;
+  font-size: 1em;
+  opacity: 0.8;
+}
+
+@keyframes snowfall {
+  0% {
+    transform: translateY(0vh) rotate(0deg);
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+  }
+}
+
+.christmas-gradient {
+  background: linear-gradient(135deg, #1a472a 0%, #0d2818 50%, #1a472a 100%);
+}
+
+.festive-glow {
+  text-shadow: 0 0 20px rgba(234, 179, 8, 0.5), 0 0 30px rgba(220, 38, 38, 0.3);
+}
+
+.gold-glow {
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.4);
+}
